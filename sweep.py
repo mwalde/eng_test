@@ -6,102 +6,10 @@ import pickle
 # sweep through a range of values and execute an optional
 # function with each value change
 
-class sweeplist():
-    seq = []
-    index = 0
-    def __init__(self, arg, valfcn=None,  infofcn=None, file=None, ):
-        self.infofcn = infofcn
-        print type(arg)
-        if type(arg) is list:
-            self.seq = arg
-        
-        if type(arg) is tuple:
-            if len(arg) == 3:
-                print len(arg)
-                self.seq = range( arg[0], arg[1], arg[2] )
-                print self.seq
-
-        self.freshstart = True  # this is a freshstart if we don't read a previous state file
-                
-        self.file = file
-        self.valfcn = self.__dummy1__
-
-        if valfcn:
-            self.valfcn = valfcn
-        
-        d = None
-        if file:
-            d = self.read_file(file)
-        if d:
-            self.index = d
-        self.gen = self.generate()
-
-    def regen( self ):
-#        print "regen(%s)" % self.file
-        self.gen = self.generate()
-
-    def generate( self ):
-        print "generate(%s) " % self.file
-        while self.index < len(self.seq):
-            val = self.seq[self.index]
-#            print val,self.index
-            self.valfcn(val, self.infofcn)
-            self.index+=1
-            self.write_file()
-#            print "yield val ",val
-            yield val
-            
-        self.index = 0
-        self.write_file()
-        return
-
-    def next( self):
-#        print "next(%s)"% self.file
-        try:
-            val = self.gen.next()
-#            print "genval = ", val
-        except:
-            val = None
-        return val
-       
-    def __dummy1__( self, val, info ):
-        print type(info)
-        return None
-        
-    def read_file( self, file ):
-        d = None
-        try:
-            with open( file + '.state', 'rb') as handle:
-                d = pickle.load(handle)
-                print "reading ", file
-                self.freshstart = False
-                print d
-        except:
-            a = 1
-#            print "no such file %s" % file
-#            print "Sweep state file read error: %s " % file, sys.exc_info()[0]
-        return d
-        
-    def write_file(self):
-        if self.file:
-            d = self.index
-            with open( self.file + '.state', 'wb') as handle:
-                pickle.dump(d, handle)
-          
-    def clean(self):
-        try:
-            os.remove( self.file + '.state' )
-        except:
-            c = 1
-               
-                
-                
-        
-    
            
 class sweep():
     def __init__(self, start=0, stop=0, step=1 , valfcn=None, file=None):
-        self.freshstart = True
+        
         self.start = start
         self.stop = stop
         self.step = step
@@ -131,7 +39,6 @@ class sweep():
             startval = self.curval
         else:
             startval = self.start
-        print "startval %d  stop %d  step %d" % (startval, self.stop, self.step)
         for val in range( startval, self.stop, self.step):
             self.lastval = self.curval
             self.curval = val
@@ -160,7 +67,6 @@ class sweep():
             with open( file + '.state', 'rb') as handle:
                 d = pickle.load(handle)
                 print "reading ", file
-                self.freshstart = False
                 print d
         except:
             a = 1
@@ -188,14 +94,14 @@ class sweep():
         
          
             
-def freq_change( freq, info ):
+def freq_change( freq ):
     print "freq_change( %s )" % freq
     
          
 def sweeptest():
-    bw = sweeplist((10, 12, 1), file='bw')
-    pwr = sweeplist((56, 58, 1), file='pwr')
-    frq = sweeplist((5125, 5500, 100), file='frq',valfcn=freq_change, infofcn="string")
+    bw = sweep(10, 12, 1, file='bw')
+    pwr = sweep(56, 60, 1, file='pwr')
+    frq = sweep(0, 0, 0, file='frq',valfcn=freq_change)
     
     bw.regen()
     ChBW = bw.next()

@@ -128,43 +128,25 @@ class control():
         self.m.t.write_wait( cmd )
         self.s.t.write_wait( cmd )
 
-    def wait( self, mod_rate, delay=25 ):
+    def wait( self, delay=25 ):
         sleep(2)
-        self.s.t.radio_ready( ready_state = [('slave','operational')], timeout = 40)
-        self.m.t.radio_ready(ready_state = [('master','operational')], timeout = 40)
-        print "wait_mod_rate(%s, %d)" % (mod_rate, delay)
-        return self.wait_mod_rate( mod_rate, timeout = delay )
+        self.s.t.radio_ready( ready_state = [('slave','operational')])
+        self.m.t.radio_ready(ready_state = [('master','operational')])
+        print "wait(%d)" % delay
         sleep(delay)
-
-    def get_mod_rate( self ):
-        s_mod_rate = self.s.w.get_page_field("labefana","Local Mod Rate")
-        m_mod_rate = self.m.w.get_page_field("labefana","Local Mod Rate")
-        return (s_mod_rate, m_mod_rate)
-
-    # return True if timeout
-    def wait_mod_rate( self, mod_rate, timeout = 25 ):
-        delay = timeout
-        mod = self.get_mod_rate()
-        while delay:
-            if mod[0] == mod_rate and mod[1] == mod_rate:
-                return 0
-            mod = self.get_mod_rate()
-            delay-=1
-            sleep(1)
-        return 1
-        
-        
-        
-    def settemp( self, temp ):
-        if self.t:
-            self.t.set_temp_chamber( temp )
-            print "did set_temp"
-            self.t.waitTempChamber( soak_time = 0 )
-            print "did wait"
     
-    def close(self):
-        self.m.close()
-        self.s.close()
+    def settemp( self, temp ):
+        print "settemp ",temp
+        print 'Chamber temp %s C' % self.t.read_temp_chamber()
+        print 'Product temp %s C' % self.t.read_temp_product()
+        print 'Relative Humidity %s %%' % self.t.read_humidity()
+#        if self.t:
+        
+        self.t.set_temp_chamber( temp )
+        print "did set_temp"
+        self.t.waitTempChamber( soak_time = 0 )
+        print "did wait"
+            
     
         
 #=========================================================================================
@@ -172,11 +154,62 @@ class control():
 #       RF Sweep loop
 #
 #=========================================================================================           
+def rf_sweep( BW, Power, Freq, Logname):
+    print "rf_sweep"
+    m = uut(ipaddr='10.8.9.195', opmode='master')
+    s = uut(ipaddr='10.8.9.196', opmode='slave')
+    m.telnet()
+    s.telnet()
+    m.web()
+    s.web()
+    print "pre control"
+    ctrl = control( m, s, 25) # <-- 25 second wait time
+    print "post control"
+
+    csv = LogFile( 'logs',Logname, '.csv') #, ['11','22','33','44','55','66'] )
+    tdata = testdata( 0,0,0)
+    csv.write(tdata.header)
+    bw   = sweep( BW[0], BW[1], BW[2], ctrl.setbw, file='bw')             
+    pwr  = sweep( Power[0], Power[1], Power[2], ctrl.setpower, file='pwr')  
+    frq  = sweep( Freq[0], Freq[1], Freq[2], ctrl.setfrequency, file='frq')
+
+    bw.regen()
+    ChBW = bw.next()
+    while ChBW :
+        print "ChBW: ",ChBW
+        frq.regen() 
+        delay = 25
+        freq = frq.next()
+        while freq:
+            print "Freq: ",freq
+            delay = 25
+            pwr.regen() 
+            power = pwr.next()
+            while power:
+                print "Power: ",power
+                ctrl.wait(delay)
+                delay = 3
+                tdata = testdata( freq, power, ChBW, temp)
+                tdata.wdata( m )
+                tdata.wdata( s )
+                csv.write(tdata.getcsv())
+#                print tdata.header
+                print tdata.getcsv()
+                power = pwr.next()
+            # reset power
+            ctrl.setpower(pwr.start)
+            freq = frq.next()
+        ChBW = bw.next()
+    print "Complete csv.close()"
+    csv.close()
+    bw.clean()
+    pwr.clean()
+    frq.clean()
     
 def rf_sweep_temp( BW, Power, Freq, Temp, Logname):
     print "rf_sweep_temp"
-    m = uut(ipaddr='10.8.8.113', opmode='master') #195
-    s = uut(ipaddr='10.8.8.138', opmode='slave') #196
+    m = uut(ipaddr='10.8.8.100', opmode='master') #195
+    s = uut(ipaddr='10.8.8.108', opmode='slave') #196
     m.telnet()
     s.telnet()
     m.web()
@@ -184,107 +217,166 @@ def rf_sweep_temp( BW, Power, Freq, Temp, Logname):
     t = None
     # is the thermotron required? 
     if Temp[0] != Temp[1]:
-#        t = thermotron("10.8.9.20")
+        t = thermotron("10.8.9.20")
         print "thermotron"
-    else:
-        t = None
     ctrl = control( m, s, t, 25) # <-- 25 second wait time
 
-    csv = LogFile( 'logs',Logname, '.csv', ['11','22','33','44','55','66'] )
+    csv = LogFile( 'logs',Logname, '.csv') #, ['11','22','33','44','55','66'] )
     tdata = testdata( 0,0,0,'--')
+    csv.write(tdata.header)
     thm  = sweep( Temp[0], Temp[1], Temp[2], ctrl.settemp, file='thm')             
     bw   = sweep( BW[0], BW[1], BW[2], ctrl.setbw, file='bw')             
     pwr  = sweep( Power[0], Power[1], Power[2], ctrl.setpower, file='pwr')  
     frq  = sweep( Freq[0], Freq[1], Freq[2], ctrl.setfrequency, file='frq')
 
-    # if this is a fresh start do put the data header in
-    if thm.freshstart and bw.freshstart and pwr.freshstart and frq.freshstart:
-        csv.write(tdata.header)
-    
-    try:
-        thm.regen()
-        temp = thm.next()
-        print
-        while temp:
-            print "Temp"
-            bw.regen()
-            ChBW = bw.next()
-            while ChBW :
-                print "ChBW: ",ChBW
-                frq.regen() 
+    thm.regen()
+    temp = thm.next()
+    print
+    while temp:
+        print "Temp"
+        bw.regen()
+        ChBW = bw.next()
+        while ChBW :
+            print "ChBW: ",ChBW
+            frq.regen() 
+            delay = 25
+            freq = frq.next()
+            while freq:
+                
+                print "Freq: ",freq
                 delay = 25
-                freq = frq.next()
-                while freq:
-                    
-                    print "Freq: ",freq
-                    delay = 25
-                    pwr.regen() 
+                pwr.regen() 
+                power = pwr.next()
+                while power:
+                    if freq < 5750 and power >= 23:
+                        pwr.curval = None
+                        pwr.regen()
+                        break;
+                    print "Power: ",power
+                    ctrl.wait(delay)
+                    delay = 3
+                    tdata = testdata( freq, power, ChBW, temp)
+                    tdata.wdata( m )
+                    tdata.wdata( s )
+                    csv.write(tdata.getcsv() )
+    #                print tdata.header
+                    print tdata.getcsv()
                     power = pwr.next()
-                    while power:
-                        if freq < 5750 and power >= 23:
-                            pwr.curval = None
-                            pwr.regen()
-                            break;
-                        print "Power: ",power
-                        if ctrl.wait('2x', delay):
-                            print "mod_rate timmeout occured"
-                            raise KeyboardInterrupt
-                        delay = 3
-                        sleep(delay)
-                        tdata = testdata( freq, power, ChBW, temp)
-                        tdata.wdata( m )
-                        tdata.wdata( s )
-                        csv.write(tdata.getcsv() )
-        #                print tdata.header
-                        print tdata.getcsv()
-                        power = pwr.next()
-                    # reset power
-                    ctrl.setpower(pwr.start)
-                    freq = frq.next()
-                ChBW = bw.next()
-            temp = thm.next()
-        print "Complete csv.close()"
-        csv.close()
-        bw.clean()
-        pwr.clean()
-        frq.clean()
-        thm.clean()
-        return False
-
-
-    except KeyboardInterrupt:
-        print "Program Abort"
-        return False
+                # reset power
+                ctrl.setpower(pwr.start)
+                freq = frq.next()
+            ChBW = bw.next()
+        temp = thm.next()
+    print "Complete csv.close()"
+    csv.close()
+    bw.clean()
+    pwr.clean()
+    frq.clean()
+    thm.clean()
     
-    except Exception, e:
-        print "Exception Exit"
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        plist = traceback.format_exception(exc_type, exc_value,
-                                              exc_traceback)
-        print plist
-        ctrl.close()
-        return True
     
+def xxrf_sweep( BW, Power, Freq, Logname):
+    print "rf_sweep"
+    m = uut(ipaddr='10.8.9.195', opmode='master')
+    s = uut(ipaddr='10.8.9.196', opmode='slave')
+    m.telnet()
+    s.telnet()
+    m.web()
+    s.web()
+    print "pre control"
+    ctrl = control( m, s, 25) # <-- 25 second wait time
+    print "post control"
+
+    csv = LogFile( 'logs',Logname, '.csv') #, ['11','22','33','44','55','66'] )
+    tdata = testdata( 0,0,0)
+    csv.write(tdata.header)
+    bw = sweep( BW[0], BW[1], BW[2], ctrl.setbw)  # <-- Channel Bandwidth
+    ChBW = bw.next()
+    while ChBW :
+        print "ChBW: ",ChBW
+        frq = sweep( Freq[0], Freq[1] , Freq[2], ctrl.setfrequency) # <-- Frequency 5150, 5876,1
+        delay = 25
+        freq = frq.next()
+        while freq:
+            print "Freq: ",freq
+            delay = 25
+            pwr = sweep( Power[0], Power[1], Power[2], ctrl.setpower) # <-- TX POWER 10,26,1
+            power = pwr.next()
+            while power:
+                print "Power: ",power
+                ctrl.wait(delay)
+                delay = 3
+                tdata = testdata( freq, power, ChBW)
+                tdata.wdata( m )
+                tdata.wdata( s )
+                csv.write(tdata.getcsv())
+#                print tdata.header
+                print tdata.getcsv()
+                power = pwr.next()
+            # reset power
+            ctrl.setpower(pwr.start)
+            freq = frq.next()
+        ChBW = bw.next()
+    print "Complete csv.close()"
+    csv.close()
+    
+def xrf_sweep():
+    print "rf_sweep"
+    m = uut(ipaddr='10.8.8.100', opmode='master')
+    s = uut(ipaddr='10.8.8.108', opmode='slave')
+    m.telnet()
+    s.telnet()
+    m.web()
+    s.web()
+    print "pre control"
+    ctrl = control( m, s, 25) # <-- 25 second wait time
+    print "post control"
+
+    csv = LogFile( 'logs','SWEEP', '.csv') #, ['11','22','33','44','55','66'] )
+    tdata = testdata( 0,0,0)
+    csv.write(tdata.header)
+    bw = sweep( 50, 51, 1, ctrl.setbw)  # <-- Channel Bandwidth 50,51,1
+    ChBW = bw.next()
+    while ChBW :
+        print ChBW
+        pwr = sweep( 10, 13, 1, ctrl.setpower) # <-- TX POWER 10,27,1
+        power = pwr.next()
+        while power:
+            frq = sweep( 5150, 5151, 1, ctrl.setfrequency) # <-- Frequency 5150,5876,1
+            freq = frq.next()
+            while freq:
+                print freq
+                ctrl.wait()
+                tdata = testdata( freq, power, ChBW)
+                tdata.wdata( m )
+                tdata.wdata( s )
+                csv.write(tdata.getcsv())
+#                print tdata.header
+                print tdata.getcsv()
+                freq = frq.next()
+            power = pwr.next()
+        ChBW = bw.next()
+    csv.close()
     
            
 if __name__ == '__main__':
+#    if len(sys.argv) > 1:
+#        Temp = "_" + str(sys.argv[1])
+#    else:
+#        Temp = ""
 
-        Logname = "fpa030315"
-        Temp = (1,2, 1)
-        BW = ( 10,51,10)
-        Power = ( 10,11,1)
-        Freq = (5150,5926,50)
+    try:
+        Logname = "MartysTest"
+        Temp = (-30,-14, 5)
+        BW = ( 50,51,1)
+        Power = ( 10,26,3)
+        Freq = (5150,5926,100)
 #        Temp = (-40,70, 5)
 #        BW = ( 50,51,1)
 #        Power = ( 10,26,1)
 #        Freq = (5150,5926,1)
-        retry = 2
-        status = 1
-        while status and retry:
-            status = rf_sweep_temp( BW, Power, Freq, Temp, Logname)
-            if status:
-                print "restarting test"
-            retry-=1
+        print "Rf_sweep"
+        rf_sweep_temp( BW, Power, Freq, Temp, Logname)
 
 #        Logname = "5XLow"
 #        BW = ( 50,51,1)
@@ -299,6 +391,13 @@ if __name__ == '__main__':
 #        rf_sweep( BW, Power, Freq, Logname+Temp)
 
         sys.exit(0)
+    except:
+        print "Exception Exit"
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        plist = traceback.format_exception(exc_type, exc_value,
+                                              exc_traceback)
+        print plist
+        sys.exit(1)
         
 
 

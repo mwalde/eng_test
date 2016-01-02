@@ -1,6 +1,5 @@
 # Unit Under Test
-#   More UUT comments
-
+#
 from testlib.radio.af5ghz import af5ghz_serial, af5ghz_telnet
 from afhttp import page_labefana, afhttp
 
@@ -55,10 +54,10 @@ if __name__ == '__main__':
     
     
     #    print slave.t.revFPGA()
-#    slave.serial()
-#    print slave.s.revSW()
-#    slave.web()
-#    print slave.w.get_page_field("labefana","Date")
+    slave.serial()
+    print slave.s.revSW()
+    slave.web()
+    print slave.w.get_page_field("labefana","Date")
 
 
 

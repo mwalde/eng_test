@@ -1,0 +1,71 @@
+CREATE TABLE NXN_DB(
+afkey integer primary key,
+DateStamp DATE,
+model text,
+serial text,
+pass_fail text,     /* over all pass failure */
+failures text,      /* limits test failures */
+/*  Test Data   */
+LA0J1_5150 text,
+LA0J1_5550 text,
+LA0J1_5950 text,
+
+LB0J1_5150 text,
+LB0J1_5550 text,
+LB0J1_5950 text,
+
+LC0J1_5150 text,
+LC0J1_5550 text,
+LC0J1_5950 text,
+
+LD0J1_5150 text,
+LD0J1_5550 text,
+LD0J1_5950 text,
+
+LA1J2_5150 text,
+LA1J2_5550 text,
+LA1J2_5950 text,
+
+LB1J2_5150 text,
+LB1J2_5550 text,
+LB1J2_5950 text,
+
+LC1J2_5150 text,
+LC1J2_5550 text,
+LC1J2_5950 text,
+
+LD1J2_5150 text,
+LD1J2_5550 text,
+LD1J2_5950 text,
+
+IA0D0_5150 text,
+IA0D0_5550 text,
+IA0D0_5950 text,
+
+IA0B0_5150 text,
+IA0B0_5550 text,
+IA0B0_5950 text,
+
+IC0B0_5150 text,
+IC0B0_5550 text,
+IC0B0_5950 text,
+
+IC1B1_5150 text,
+IC1B1_5550 text,
+IC1B1_5950 text,
+
+IA1B1_5150 text,
+IA1B1_5550 text,
+IA1B1_5950 text,
+
+IA1D1_5150 text,
+IA1D1_5550 text,
+IA1D1_5950 text,
+
+
+/*  Misc  */
+test_time text,     /* the total time in seconds */
+operator_id text,   
+test_swver  text   /* test station software version */
+);
+
