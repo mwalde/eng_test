@@ -1,0 +1,2 @@
+Frequency MHz,Power dBm,Channel BW,Master ISO,Master Chain 0 EVM,Master Chain 1 EVM,Master Rx Power0,Master Rx Power1,Master Local Mod rate,Master Rx Cap,Master Tx Cap,Master Tx0 reg 73,Master Tx1 reg 75,Master Radio Temp,Slave ISO,Slave Chain 0 EVM,Slave Chain 1 EVM,Slave Rx Power0,Slave Rx Power1,Slave Local Mod rate,Slave Rx Cap,Slave Tx Cap,Slave Tx0 reg 73,Slave Tx1 reg 75,Slave Radio Temp
+5150,10,10,34,-28,-29,-23.53,-23.6,8x,245751040,245751040,23,18,61,34,-28,-28,-23.81,-24.13,8x,245751040,245740800,20,22,61
